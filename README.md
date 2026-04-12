@@ -1,58 +1,148 @@
-# YouTube-Player-iOS-Helper
+# YouTubePlayer
 
-[![Version](https://cocoapod-badges.herokuapp.com/v/youtube-ios-player-helper/badge.png)](https://cocoapods.org/pods/youtube-ios-player-helper)
-[![Platform](https://cocoapod-badges.herokuapp.com/p/youtube-ios-player-helper/badge.png)](https://cocoapods.org/pods/youtube-ios-player-helper)
+A modern Swift rewrite of the official [youtube-ios-player-helper](https://github.com/youtube/youtube-ios-player-helper) library by Google. Built for SwiftUI with `@Observable`, async/await, and a type-safe API — no Objective-C, no delegates, no CocoaPods required.
 
-## Overview
+## Origin
 
-To run the example project; clone the repo, and run `pod install` from the Project directory first.  For a simple tutorial see this Google Developers article - [Using the YouTube Helper Library to embed YouTube videos in your iOS application](https://developers.google.com/youtube/v3/guides/ios_youtube_helper).
+This package is a ground-up Swift conversion of `youtube-ios-player-helper`, the original Objective-C library maintained by Google. The core embedding approach (YouTube IFrame API via `WKWebView`) is the same, but the entire public API has been rewritten:
+
+| Original (`youtube-ios-player-helper`) | This package (`YouTubePlayer`) |
+|---|---|
+| Objective-C, UIKit only | Swift 6, SwiftUI-first |
+| `YTPlayerView` + `YTPlayerViewDelegate` | `YouTubePlayerView` + `@Observable YouTubePlayer` |
+| `[String: Any]` player vars | `YouTubePlayerVars` struct (type-safe) |
+| CocoaPods / manual install | Swift Package Manager |
+| Callback delegate pattern | Closure properties + SwiftUI modifiers |
+
+## Requirements
+
+- iOS 17+
+- Swift 6.2+
+- Xcode 16+
 
 ## Installation
-### CocoaPods
-YouTube-Player-iOS-Helper is available through [CocoaPods](http://cocoapods.org). To install
-the library, add the following line to your Podfile and replace "x.y.z" with the latest version.
 
-    pod "youtube-ios-player-helper", "~> x.y.z"
+### Swift Package Manager
 
-### Swift Package Manager 
-Add the following line to the dependencies in your `Package.swift`:
+Add the package in Xcode via **File → Add Package Dependencies**, or add it manually to your `Package.swift`:
+
 ```swift
-.package("https://github.com/youtube/youtube-ios-player-helper.git", from: "x.y.z")
+.package(url: "https://github.com/your-org/YouTubePlayer.git", from: "1.0.0")
 ```
-Add `YouTubeiOSPlayerHelper` to your target's dependencies.
+
+Then add `YouTubePlayer` to your target's dependencies:
+
 ```swift
-.target(name: "TargetName",
-        dependencies: [
-          "YouTubeiOSPlayerHelper"
-        ]
-      )
+.target(name: "MyApp", dependencies: ["YouTubePlayer"])
 ```
 
 ## Usage
-After installing in your project, to use the library:
 
-  1. Drag a UIView the desired size of your player onto your Storyboard.
-  2. Change the UIView's class in the Identity Inspector tab to YTPlayerView
-  3. Import "YTPlayerView.h" in your ViewController.
-  4. Add the following property to your ViewController's header file:
-```objc
-    @property(nonatomic, strong) IBOutlet YTPlayerView *playerView;
+### Basic
+
+```swift
+import SwiftUI
+import YouTubePlayer
+
+struct ContentView: View {
+    @State private var player = YouTubePlayer()
+
+    var body: some View {
+        YouTubePlayerView(player: player)
+            .onAppear {
+                player.load(videoId: "dQw4w9WgXcQ")
+            }
+    }
+}
 ```
-  5. Load the video into the player in your controller's code with the following code:
-```objc
-    [self.playerView loadWithVideoId:@"M7lc1UVf-VE"];
+
+### With player parameters
+
+```swift
+player.load(videoId: "dQw4w9WgXcQ", playerVars: YouTubePlayerVars(
+    autoplay: true,
+    playsInline: true,
+    controls: false,
+    start: 30
+))
 ```
-  6. Run your code!
 
-See the sample project for more advanced uses, including passing additional player parameters and
-working with callbacks via YTPlayerViewDelegate.
+### Observing events
 
-## Original Authors
+```swift
+YouTubePlayerView(player: player)
+    .onReady {
+        print("Player is ready")
+    }
+    .onStateChange { state in
+        // state is YouTubePlayerState: .playing, .paused, .ended, ...
+        print("State changed: \(state)")
+    }
+    .onError { error in
+        // error is YouTubePlayerError: .videoNotFound, .notEmbeddable, ...
+        print("Error: \(error)")
+    }
+    .onPlayTime { seconds in
+        print("Current time: \(seconds)s")
+    }
+```
 
+### Playback controls
+
+```swift
+player.play()
+player.pause()
+player.stop()
+player.seekTo(120, allowSeekAhead: true)
+player.setPlaybackRate(1.5)
+```
+
+### Querying state
+
+```swift
+let duration = try await player.duration()
+let currentTime = try await player.currentTime()
+let buffered = try await player.videoLoadedFraction()
+let rate = try await player.playbackRate()
+```
+
+### Loading a playlist
+
+```swift
+player.load(playlistId: "PLbpi6ZahtOH6Ar_3GPy3workRCNnrOaBk", playerVars: YouTubePlayerVars(
+    autoplay: true,
+    loop: true
+))
+```
+
+## `YouTubePlayerVars` reference
+
+All properties are optional. Omit any property to use the YouTube player's default.
+
+| Property | Description |
+|---|---|
+| `autoplay` | Start playing automatically when loaded |
+| `start` | Start offset in seconds |
+| `end` | Stop offset in seconds |
+| `loop` | Loop video/playlist indefinitely |
+| `controls` | Show the player control bar |
+| `fullscreen` | Show the fullscreen button |
+| `relatedVideos` | Show related videos from any channel at end (`true`) or same channel only (`false`) |
+| `progressBarColor` | `.red` (default) or `.white` |
+| `keyboardControls` | Allow keyboard shortcuts |
+| `playsInline` | Play inline on iPhone instead of going full-screen |
+| `annotations` | Show video annotations |
+| `captionLanguage` | Default caption language (BCP-47, e.g. `"en"`, `"vi"`) |
+| `showCaptions` | Always show captions |
+| `language` | Player UI language (BCP-47) |
+
+## Original library
+
+Original authors of `youtube-ios-player-helper`:
 - Ikai Lan
 - Ibrahim Ulukaya
 - Yoshifumi Yamaguchi
 
 ## License
 
-YouTube-Player-iOS-Helper is available under the Apache 2.0 license. See the LICENSE file for more info.
+Available under the Apache 2.0 license. See the LICENSE file for more info.
