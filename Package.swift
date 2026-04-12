@@ -1,11 +1,10 @@
-// swift-tools-version:5.9
+// swift-tools-version:6.2
 import PackageDescription
 
 let package = Package(
     name: "YouTubePlayer",
     platforms: [
         .iOS(.v17),
-        .macOS(.v14)
     ],
     products: [
         .library(
@@ -18,7 +17,8 @@ let package = Package(
             name: "YouTubePlayer",
             resources: [
                 .process("Assets")
-            ]
+            ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
         )
     ]
 )

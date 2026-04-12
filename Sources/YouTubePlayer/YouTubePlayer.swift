@@ -1,9 +1,6 @@
 import WebKit
-#if canImport(UIKit)
 import UIKit
-#elseif canImport(AppKit)
-import AppKit
-#endif
+import Observation
 
 // MARK: - YouTubePlayer
 
@@ -19,10 +16,7 @@ import AppKit
 ///         .onAppear { player.load(videoId: "dQw4w9WgXcQ") }
 /// }
 /// ```
-///
-/// All methods must be called on the main actor.
 @Observable
-@MainActor
 public final class YouTubePlayer: NSObject {
     
     // MARK: - Observable State
@@ -77,8 +71,8 @@ public final class YouTubePlayer: NSObject {
     ///   - videoId: The YouTube video ID (e.g. `"dQw4w9WgXcQ"`).
     ///   - playerVars: Optional IFrame player parameters.
     @discardableResult
-    public func load(videoId: String, playerVars: YouTubePlayerVars = [:]) -> Bool {
-        loadWithPlayerParams(["videoId": videoId, "playerVars": playerVars])
+    public func load(videoId: String, playerVars: YouTubePlayerVars = YouTubePlayerVars()) -> Bool {
+        loadWithPlayerParams(["videoId": videoId, "playerVars": playerVars.toDictionary()])
     }
     
     /// Loads a playlist by its YouTube playlist ID.
@@ -87,8 +81,8 @@ public final class YouTubePlayer: NSObject {
     ///   - playlistId: The YouTube playlist ID.
     ///   - playerVars: Optional IFrame player parameters.
     @discardableResult
-    public func load(playlistId: String, playerVars: YouTubePlayerVars = [:]) -> Bool {
-        var vars = playerVars
+    public func load(playlistId: String, playerVars: YouTubePlayerVars = YouTubePlayerVars()) -> Bool {
+        var vars = playerVars.toDictionary()
         vars["listType"] = "playlist"
         vars["list"] = playlistId
         return loadWithPlayerParams(["playerVars": vars])
@@ -120,10 +114,9 @@ public final class YouTubePlayer: NSObject {
         playerVars["origin"] = origin.absoluteString
         playerParams["playerVars"] = playerVars
         
-        guard
-            let jsonData = try? JSONSerialization.data(withJSONObject: playerParams, options: .prettyPrinted),
-            let jsonString = String(data: jsonData, encoding: .utf8),
-            let htmlTemplate = loadHTMLTemplate()
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: playerParams, options: .prettyPrinted),
+              let jsonString = String(data: jsonData, encoding: .utf8),
+              let htmlTemplate = loadHTMLTemplate()
         else {
             return false
         }
@@ -467,11 +460,7 @@ extension YouTubePlayer: WKNavigationDelegate {
     }
     
     private func openURL(_ url: URL) {
-#if canImport(UIKit)
-        Task { await UIApplication.shared.open(url) }
-#elseif canImport(AppKit)
-        NSWorkspace.shared.open(url)
-#endif
+        UIApplication.shared.open(url)
     }
 }
 

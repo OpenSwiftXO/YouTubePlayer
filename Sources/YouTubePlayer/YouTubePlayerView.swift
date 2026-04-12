@@ -1,4 +1,3 @@
-#if canImport(UIKit)
 import SwiftUI
 import WebKit
 
@@ -111,5 +110,3 @@ extension YouTubePlayerView {
         return self
     }
 }
-
-#endif // canImport(UIKit)
