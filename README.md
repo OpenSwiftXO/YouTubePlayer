@@ -27,13 +27,13 @@ This package is a ground-up Swift conversion of `youtube-ios-player-helper`, the
 Add the package in Xcode via **File → Add Package Dependencies**, or add it manually to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/your-org/YouTubePlayer.git", from: "1.0.0")
+.package(url: "https://github.com/OpenSwiftXO/YouTubePlayer", from: "1.0.0")
 ```
 
 Then add `YouTubePlayer` to your target's dependencies:
 
 ```swift
-.target(name: "MyApp", dependencies: ["YouTubePlayer"])
+.target(name: "YourApp", dependencies: ["YouTubePlayer"])
 ```
 
 ## Usage
