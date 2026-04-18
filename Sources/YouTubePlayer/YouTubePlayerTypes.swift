@@ -52,7 +52,7 @@ public enum YouTubePlaybackQuality: String, Sendable {
 /// An error reported by the YouTube IFrame player.
 ///
 /// https://developers.google.com/youtube/iframe_api_reference#Events (onError)
-public enum YouTubePlayerError: Error, Sendable {
+public enum YouTubePlayerError: Error, Sendable, Equatable {
     /// The request contained an invalid parameter value (code 2).
     case invalidParam
     /// The requested content cannot be played in an HTML5 player (code 5).
@@ -61,6 +61,8 @@ public enum YouTubePlayerError: Error, Sendable {
     case videoNotFound
     /// The owner of the video does not allow it to be played in embedded players (codes 101, 150).
     case notEmbeddable
+    /// The YouTube IFrame API script failed to load (e.g. no internet connection).
+    case apiFailedToLoad
     /// An unknown error occurred.
     case unknown
     
@@ -212,4 +214,16 @@ public struct YouTubePlayerVars: Sendable {
         if let language          { d["hl"]              = language }
         return d
     }
+}
+
+// MARK: - Player Phase
+
+/// The current phase of the YouTube player lifecycle
+public enum YouTubePlayerPhase: Sendable, Equatable {
+    /// The player is loading or has not yet been initialized.
+    case loading
+    /// The player is ready and active with the given playback state.
+    case active(YouTubePlayerState)
+    /// The player encountered an error.
+    case failed(YouTubePlayerError)
 }

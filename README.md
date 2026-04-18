@@ -12,7 +12,7 @@ This package is a ground-up Swift conversion of `youtube-ios-player-helper`, the
 | `YTPlayerView` + `YTPlayerViewDelegate` | `YouTubePlayerView` + `@Observable YouTubePlayer` |
 | `[String: Any]` player vars | `YouTubePlayerVars` struct (type-safe) |
 | CocoaPods / manual install | Swift Package Manager |
-| Callback delegate pattern | Closure properties + SwiftUI modifiers |
+| Callback delegate pattern | Phase-based API (like `AsyncImage`) + `onChange` |
 
 ## Requirements
 
@@ -27,13 +27,13 @@ This package is a ground-up Swift conversion of `youtube-ios-player-helper`, the
 Add the package in Xcode via **File → Add Package Dependencies**, or add it manually to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/OpenSwiftXO/YouTubePlayer", from: "1.0.0")
+    .package(url: "https://github.com/OpenSwiftXO/YouTubePlayer", from: "1.1.0")
 ```
 
 Then add `YouTubePlayer` to your target's dependencies:
 
 ```swift
-.target(name: "YourApp", dependencies: ["YouTubePlayer"])
+    .target(name: "YourApp", dependencies: ["YouTubePlayer"])
 ```
 
 ## Usage
@@ -41,78 +41,112 @@ Then add `YouTubePlayer` to your target's dependencies:
 ### Basic
 
 ```swift
-import SwiftUI
-import YouTubePlayer
-
-struct ContentView: View {
+    import SwiftUI
+    import YouTubePlayer
+    
+    struct ContentView: View {
     @State private var player = YouTubePlayer()
-
+    
     var body: some View {
         YouTubePlayerView(player: player)
-            .onAppear {
-                player.load(videoId: "dQw4w9WgXcQ")
-            }
+        .onAppear {
+            player.load(videoId: "dQw4w9WgXcQ")
+        }
     }
-}
 ```
 
 ### With player parameters
 
 ```swift
-player.load(videoId: "dQw4w9WgXcQ", playerVars: YouTubePlayerVars(
-    autoplay: true,
-    playsInline: true,
-    controls: false,
-    start: 30
-))
+    player.load(
+        videoId: "dQw4w9WgXcQ",
+        playerVars: YouTubePlayerVars(
+            autoplay: true,
+            playsInline: true,
+            controls: false,
+            start: 30
+        )
+    )
 ```
 
-### Observing events
+### Phase-based overlays
+
+`YouTubePlayerView` follows the same pattern as SwiftUI's `AsyncImage`. Provide a closure that receives the current `YouTubePlayerPhase` and return an overlay for each phase:
 
 ```swift
-YouTubePlayerView(player: player)
-    .onReady {
-        print("Player is ready")
-    }
-    .onStateChange { state in
-        // state is YouTubePlayerState: .playing, .paused, .ended, ...
-        print("State changed: \(state)")
-    }
-    .onError { error in
-        // error is YouTubePlayerError: .videoNotFound, .notEmbeddable, ...
-        print("Error: \(error)")
-    }
-    .onPlayTime { seconds in
-        print("Current time: \(seconds)s")
+    YouTubePlayerView(player: player) { phase in
+        switch phase {
+            case .loading:
+            ProgressView()
+            case .active(let state):
+            // state is YouTubePlayerState: .playing, .paused, .ended, ...
+            EmptyView()
+            case .failed(let error):
+            // error is YouTubePlayerError: .videoNotFound, .notEmbeddable, ...
+            ContentUnavailableView("Playback Error", systemImage: "exclamationmark.triangle", description: Text("\(error)"))
+        }
     }
 ```
+
+### Reacting to state changes
+
+Use SwiftUI's `onChange` modifier to observe any `@Observable` property on the player:
+
+```swift
+    YouTubePlayerView(player: player) { phase in
+        // ...
+    }
+    .onChange(of: player.playerState) { _, state in
+        print("State changed: \(state)")
+    }
+    .onChange(of: player.playTime) { _, time in
+        print("Current time: \(time)s")
+    }
+    .onChange(of: player.playbackQuality) { _, quality in
+        print("Quality: \(quality)")
+    }
+```
+
+### Observable properties
+
+| Property | Type | Description |
+|---|---|---|
+| `phase` | `YouTubePlayerPhase` | `.loading`, `.active(state)`, or `.failed(error)` |
+| `isReady` | `Bool` | Whether the player is ready to accept API calls |
+| `playerState` | `YouTubePlayerState` | `.playing`, `.paused`, `.ended`, `.buffering`, etc. |
+| `playbackQuality` | `YouTubePlaybackQuality` | `.auto`, `.hd720`, `.hd1080`, etc. |
+| `playTime` | `Float` | Current playback time in seconds (updated ~2×/sec) |
+| `lastError` | `YouTubePlayerError?` | Last error, if any (reset on each `load`) |
 
 ### Playback controls
 
 ```swift
-player.play()
-player.pause()
-player.stop()
-player.seekTo(120, allowSeekAhead: true)
-player.setPlaybackRate(1.5)
+    player.play()
+    player.pause()
+    player.stop()
+    player.seekTo(120, allowSeekAhead: true)
+    player.setPlaybackRate(1.5)
 ```
 
 ### Querying state
 
 ```swift
-let duration = try await player.duration()
-let currentTime = try await player.currentTime()
-let buffered = try await player.videoLoadedFraction()
-let rate = try await player.playbackRate()
+    let duration = try await player.duration()
+    let currentTime = try await player.currentTime()
+    let buffered = try await player.videoLoadedFraction()
+    let rate = try await player.playbackRate()
 ```
 
 ### Loading a playlist
 
 ```swift
-player.load(playlistId: "PLbpi6ZahtOH6Ar_3GPy3workRCNnrOaBk", playerVars: YouTubePlayerVars(
-    autoplay: true,
-    loop: true
-))
+    player.load(
+        playlistId: "PLbpi6ZahtOH6Ar_3GPy3workRCNnrOaBk",
+        playerVars: YouTubePlayerVars(
+            autoplay: true,
+            loop: true
+        )
+    )
 ```
 
 ## `YouTubePlayerVars` reference

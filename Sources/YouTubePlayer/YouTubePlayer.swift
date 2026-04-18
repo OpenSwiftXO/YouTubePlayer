@@ -12,8 +12,15 @@ import Observation
 /// @State private var player = YouTubePlayer()
 ///
 /// var body: some View {
-///     YouTubePlayerView(player: player)
-///         .onAppear { player.load(videoId: "dQw4w9WgXcQ") }
+///     YouTubePlayerView(player: player) { phase in
+///         switch phase {
+///         case .loading:  ProgressView()
+///         case .active:   EmptyView()
+///         case .failed:   ContentUnavailableView("Error", systemImage: "xmark.circle")
+///         }
+///     }
+///     .onAppear { player.load(videoId: "dQw4w9WgXcQ") }
+///     .onChange(of: player.playerState) { _, state in print(state) }
 /// }
 /// ```
 @Observable
@@ -33,25 +40,22 @@ public final class YouTubePlayer: NSObject {
     /// The underlying WKWebView. Becomes non-nil after the first `load` call.
     public private(set) var webView: WKWebView?
     
-    // MARK: - Event Callbacks
+    /// The last error reported by the player, if any. Reset on each new `load` call.
+    public private(set) var lastError: YouTubePlayerError?
     
-    /// Called when the player is ready to accept API calls.
-    public var onReady: (() -> Void)?
+    /// The current playback time in seconds, updated approximately twice per second.
+    public private(set) var playTime: Float = 0
     
-    /// Called whenever the player state changes.
-    public var onStateChange: ((YouTubePlayerState) -> Void)?
-    
-    /// Called whenever the playback quality changes.
-    public var onQualityChange: ((YouTubePlaybackQuality) -> Void)?
-    
-    /// Called when the player reports an error.
-    public var onError: ((YouTubePlayerError) -> Void)?
-    
-    /// Called approximately twice per second while the video is playing, with the current time in seconds.
-    public var onPlayTime: ((Float) -> Void)?
-    
-    /// Called when the YouTube IFrame API script fails to load (e.g. no internet connection).
-    public var onAPIFailedToLoad: (() -> Void)?
+    /// The current phase of the player lifecycle.
+    public var phase: YouTubePlayerPhase {
+        if let lastError {
+            return .failed(lastError)
+        }
+        if isReady {
+            return .active(playerState)
+        }
+        return .loading
+    }
     
     // MARK: - Private
     
@@ -128,6 +132,8 @@ public final class YouTubePlayer: NSObject {
         self.isReady = false
         self.playerState = .unknown
         self.playbackQuality = .unknown
+        self.lastError = nil
+        self.playTime = 0
         
         newWebView.loadHTMLString(embedHTML, baseURL: origin)
         return true
@@ -376,28 +382,21 @@ public final class YouTubePlayer: NSObject {
         switch action {
         case "onReady":
             isReady = true
-            onReady?()
             
         case "onStateChange":
-            let state = YouTubePlayerState(code: data ?? "")
-            playerState = state
-            onStateChange?(state)
+            playerState = YouTubePlayerState(code: data ?? "")
             
         case "onPlaybackQualityChange":
-            let quality = YouTubePlaybackQuality(string: data ?? "")
-            playbackQuality = quality
-            onQualityChange?(quality)
+            playbackQuality = YouTubePlaybackQuality(string: data ?? "")
             
         case "onError":
-            let error = YouTubePlayerError(code: data ?? "")
-            onError?(error)
+            lastError = YouTubePlayerError(code: data ?? "")
             
         case "onPlayTime":
-            let time = Float(data ?? "0") ?? 0
-            onPlayTime?(time)
+            playTime = Float(data ?? "0") ?? 0
             
         case "onYouTubeIframeAPIFailedToLoad":
-            onAPIFailedToLoad?()
+            lastError = .apiFailedToLoad
             
         default:
             break

@@ -15,27 +15,48 @@ import WebKit
 /// }
 /// ```
 ///
-/// Use the fluent modifier API to observe player events:
+/// **Phase-based usage** — provide custom overlays for each phase:
 /// ```swift
-/// YouTubePlayerView(player: player)
-///     .onReady { print("Player ready") }
-///     .onStateChange { state in print("State: \(state)") }
-///     .onError { error in print("Error: \(error)") }
+/// YouTubePlayerView(player: player) { phase in
+///     switch phase {
+///     case .loading:
+///         ProgressView()
+///     case .active:
+///         EmptyView()
+///     case .failed(let error):
+///         ContentUnavailableView("Playback Error", systemImage: "exclamationmark.triangle")
+///     }
+/// }
 /// ```
-public struct YouTubePlayerView: View {
+///
+/// **Reacting to state changes** — use SwiftUI's `onChange` modifier:
+/// ```swift
+/// YouTubePlayerView(player: player) { phase in ... }
+///     .onChange(of: player.playerState) { _, state in print(state) }
+///     .onChange(of: player.playTime) { _, time in print(time) }
+/// ```
+public struct YouTubePlayerView<Overlay: View>: View {
     
-    /// The player controller managing this view.
     var player: YouTubePlayer
-    
-    public init(player: YouTubePlayer) {
-        self.player = player
-    }
+    var overlay: (YouTubePlayerPhase) -> Overlay
     
     public var body: some View {
-        // Accessing player.webView here means SwiftUI will re-render
-        // this view whenever the webView property changes (@Observable tracking).
-        _YouTubeWebViewContainer(webView: player.webView)
-            .background(Color.black)
+        ZStack {
+            _YouTubeWebViewContainer(webView: player.webView)
+            overlay(player.phase)
+        }
+        .background(Color.black)
+    }
+}
+
+// MARK: - Initializers
+
+extension YouTubePlayerView where Overlay == EmptyView {
+    
+    /// Creates a YouTube player view with no overlay.
+    public init(player: YouTubePlayer) {
+        self.player = player
+        self.overlay = { _ in EmptyView() }
     }
 }
 
@@ -67,46 +88,5 @@ private struct _YouTubeWebViewContainer: UIViewRepresentable {
             webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
             container.addSubview(webView)
         }
-    }
-}
-
-// MARK: - Convenience Modifiers
-
-extension YouTubePlayerView {
-    
-    /// Called when the player becomes ready to accept API calls.
-    public func onReady(_ action: @escaping () -> Void) -> Self {
-        player.onReady = action
-        return self
-    }
-    
-    /// Called whenever the player state changes.
-    public func onStateChange(_ action: @escaping (YouTubePlayerState) -> Void) -> Self {
-        player.onStateChange = action
-        return self
-    }
-    
-    /// Called whenever the playback quality changes.
-    public func onQualityChange(_ action: @escaping (YouTubePlaybackQuality) -> Void) -> Self {
-        player.onQualityChange = action
-        return self
-    }
-    
-    /// Called when the player reports an error.
-    public func onError(_ action: @escaping (YouTubePlayerError) -> Void) -> Self {
-        player.onError = action
-        return self
-    }
-    
-    /// Called approximately twice per second with the current playback time in seconds.
-    public func onPlayTime(_ action: @escaping (Float) -> Void) -> Self {
-        player.onPlayTime = action
-        return self
-    }
-    
-    /// Called when the YouTube IFrame API script fails to load (e.g. no internet).
-    public func onAPIFailedToLoad(_ action: @escaping () -> Void) -> Self {
-        player.onAPIFailedToLoad = action
-        return self
     }
 }
